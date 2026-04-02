@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,9 +15,9 @@ import {
     ShieldAlert, Zap, Monitor, ShoppingCart,
     Lock, Unlock, LogOut, ChevronRight,
     ArrowUpRight, AlertTriangle, Sparkles,
-    Receipt as ReceiptIcon, Wallet, RefreshCcw, Search,
+    Receipt as ReceiptIcon, Wallet, Loader2 as RefreshIcon, Search,
     ScanLine, Info, History as LucideHistory, Barcode, Plus, Minus, Trash2,
-    CreditCard, Banknote, X, Check, Eye, Activity, Cpu, BarChart3, PieChart, LineChart
+    CreditCard, Banknote, X, Check, Eye, Activity, Cpu, BarChart3, PieChart, LineChart, FileText, Printer, Mail
 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CustomerSelect } from "@/components/pos/CustomerSelect"
@@ -24,7 +25,9 @@ import { Receipt } from "@/components/pos/Receipt"
 import { useReactToPrint } from "react-to-print"
 import {
     getLiveCounters, interveneInCounter, executePrivilegedTransaction,
-    explainBillAnalysis, closeDayEmergency, getThreats, getSessionSummary, triggerStoreLockdown } from "@/app/actions/owner-pos"
+    explainBillAnalysis, closeDayEmergency, getThreats, getSessionSummary, triggerStoreLockdown
+} from "@/app/actions/owner-pos"
+import { ProfessionalDocument } from "@/components/docs/ProfessionalDocument"
 import { createOrderWithLoyalty, getProducts } from "@/app/actions/pos"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -32,6 +35,8 @@ import { cn } from "@/lib/utils"
 
 export default function OwnerPOSPage() {
     const { toast } = useToast()
+    const docRef = useRef<HTMLDivElement>(null)
+    const handlePrint = useReactToPrint({ contentRef: docRef })
     const router = useRouter()
     const [counters, setCounters] = useState<any[]>([])
     const [cart, setCart] = useState<any[]>([])
@@ -50,6 +55,7 @@ export default function OwnerPOSPage() {
     const [showCheckout, setShowCheckout] = useState(false)
     const [lastOrder, setLastOrder] = useState<any>(null)
     const [showReceiptDialog, setShowReceiptDialog] = useState(false)
+    const [showQuotationDialog, setShowQuotationDialog] = useState(false)
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean, itemId: string | null }>({ isOpen: false, itemId: null })
     const [threats, setThreats] = useState<any[]>([])
 
@@ -84,7 +90,7 @@ export default function OwnerPOSPage() {
                 getThreats()
             ])
             if (counterRes.success) setCounters(counterRes.counters || [])
-            if (productRes) setProducts(productRes)
+            if (productRes.success) setProducts(productRes.products || [])
             if (threatRes.success) setThreats(threatRes.threats || [])
         }
         load()
@@ -160,6 +166,16 @@ export default function OwnerPOSPage() {
         setIsAiLoading(false)
     }
 
+    const startReconciliation = async () => {
+        const res = await getSessionSummary()
+        if (res.success) {
+            setSessionSummary(res.summary)
+            setReconcileStep(1)
+        } else {
+            toast({ title: "Failed to fetch session data", variant: "destructive" })
+        }
+    }
+
     const handleDayClose = async () => {
         const res = await closeDayEmergency({
             actualCash: parseFloat(actualCash) + parseFloat(actualCard || "0"),
@@ -182,6 +198,22 @@ export default function OwnerPOSPage() {
             setLockdownStep(0)
             setLockdownReason("")
         }
+    }
+
+    const generateQuotation = () => {
+        if (cart.length === 0) return toast({ title: "Cart Empty", variant: "destructive" })
+        const quotation = {
+            id: `QUO-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+            items: cart,
+            total,
+            subtotal,
+            tax,
+            discount,
+            customer: selectedCustomer,
+            createdAt: new Date()
+        }
+        setLastOrder(quotation)
+        setShowQuotationDialog(true)
     }
 
     const completeSale = async () => {
@@ -311,19 +343,19 @@ export default function OwnerPOSPage() {
 
                             {/* AI Insights Board */}
                             <div className="bg-muted p-4 rounded-xl flex items-center gap-4">
-                                 <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                                     <Sparkles className="h-5 w-5" />
-                                 </div>
-                                 <div className="flex-1">
-                                     <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Operational Intel</h4>
-                                     <p className="text-xs font-medium line-clamp-1">
-                                         {aiInsights.length > 0 ? aiInsights[0] : "Monitoring active session metrics..."}
-                                     </p>
-                                 </div>
-                                 <Button onClick={handleExplainBill} disabled={isAiLoading || cart.length === 0} size="sm" variant="outline">
-                                     {isAiLoading ? "Analyzing..." : "Analyze Bill"}
-                                 </Button>
-                             </div>
+                                <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                    <Sparkles className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Operational Intel</h4>
+                                    <p className="text-xs font-medium line-clamp-1">
+                                        {aiInsights.length > 0 ? aiInsights[0] : "Monitoring active session metrics..."}
+                                    </p>
+                                </div>
+                                <Button onClick={handleExplainBill} disabled={isAiLoading || cart.length === 0} size="sm" variant="outline">
+                                    {isAiLoading ? "Analyzing..." : "Analyze Bill"}
+                                </Button>
+                            </div>
                         </div>
 
                         <Card className="w-[400px] flex flex-col rounded-xl bg-white border-slate-200 shadow-xl overflow-hidden">
@@ -352,35 +384,35 @@ export default function OwnerPOSPage() {
                                             <div className="space-y-4">
                                                 {cart.map(item => (
                                                     <motion.div
-                                                         key={item.id}
-                                                         layout
-                                                         initial={{ opacity: 0, scale: 0.95 }}
-                                                         animate={{ opacity: 1, scale: 1 }}
-                                                         className="group p-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-white transition-all"
-                                                     >
-                                                         <div className="flex items-start justify-between mb-2">
-                                                             <div className="flex-1 pr-4">
-                                                                 <p className="text-sm font-semibold text-slate-900 line-clamp-1">{item.name}</p>
-                                                                 <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{item.barcode}</p>
-                                                             </div>
-                                                             <p className="text-sm font-bold text-slate-900">${((item.customPrice || item.price) * item.quantity).toFixed(2)}</p>
-                                                         </div>
-                                                         <div className="flex items-center justify-between">
-                                                             <div className="flex items-center gap-1 bg-white rounded-lg border shadow-sm">
-                                                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)}><Minus className="h-3 w-3" /></Button>
-                                                                 <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
-                                                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)}><Plus className="h-3 w-3" /></Button>
-                                                             </div>
-                                                             <Button
-                                                                 size="icon"
-                                                                 variant="ghost"
-                                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-                                                                 onClick={() => setDeleteConfirm({ isOpen: true, itemId: item.id })}
-                                                             >
-                                                                 <Trash2 className="h-4 w-4" />
-                                                             </Button>
-                                                         </div>
-                                                     </motion.div>
+                                                        key={item.id}
+                                                        layout
+                                                        initial={{ opacity: 0, scale: 0.95 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        className="group p-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-white transition-all"
+                                                    >
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <div className="flex-1 pr-4">
+                                                                <p className="text-sm font-semibold text-slate-900 line-clamp-1">{item.name}</p>
+                                                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{item.barcode}</p>
+                                                            </div>
+                                                            <p className="text-sm font-bold text-slate-900">${((item.customPrice || item.price) * item.quantity).toFixed(2)}</p>
+                                                        </div>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-1 bg-white rounded-lg border shadow-sm">
+                                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.id, -1)}><Minus className="h-3 w-3" /></Button>
+                                                                <span className="w-8 text-center text-xs font-bold">{item.quantity}</span>
+                                                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => updateQuantity(item.id, 1)}><Plus className="h-3 w-3" /></Button>
+                                                            </div>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                                                                onClick={() => setDeleteConfirm({ isOpen: true, itemId: item.id })}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </motion.div>
                                                 ))}
                                             </div>
                                         )}
@@ -450,9 +482,16 @@ export default function OwnerPOSPage() {
                                                 <Button
                                                     className="h-12 flex-[2] rounded-xl font-bold uppercase tracking-wider"
                                                     disabled={!paymentMethod}
-                                                    onClick={completeSale}
+                                                    /* Complete Sale Button */ onClick={completeSale}
                                                 >
                                                     Finish Sale
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full h-14 rounded-2xl border-2 border-slate-900 text-slate-900 font-bold uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all"
+                                                    onClick={generateQuotation}
+                                                >
+                                                    <FileText className="mr-2 h-4 w-4" /> Generate Quotation
                                                 </Button>
                                             </div>
                                         </div>
@@ -468,37 +507,37 @@ export default function OwnerPOSPage() {
                                 <h2 className="text-2xl font-bold text-slate-900 tracking-tight uppercase italic mb-1">Live Terminal Stream</h2>
                                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Global Node Monitoring • {counters.length} Active Nodes</p>
                             </div>
-                            <Button variant="outline" size="sm" className="h-10 rounded-xl border-slate-200 font-bold text-[10px] uppercase tracking-wider px-6" onClick={() => getLiveCounters().then(res => res.success && setCounters(res.counters))}>
-                                <RefreshCcw className="mr-2 h-3.5 w-3.5" /> Force Sync
+                            <Button variant="outline" size="sm" className="h-10 rounded-xl border-slate-200 font-bold text-[10px] uppercase tracking-wider px-6" onClick={() => getLiveCounters().then((res: any) => res.success && setCounters(res.counters))}>
+                                {/* <RefreshIcon className="mr-2 h-3.5 w-3.5" /> */} Force Sync
                             </Button>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {counters.map(counter => (
                                 <Card key={counter.id} className="rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group relative overflow-hidden bg-white">
-                                     <div className="absolute top-0 right-0 p-4">
-                                         <div className={cn("h-2 w-2 rounded-full", counter.status === 'ACTIVE' ? "bg-green-500" : "bg-red-500")} />
-                                     </div>
-                                     <CardContent className="p-6">
-                                         <div className="h-12 w-12 rounded-lg bg-slate-50 flex items-center justify-center mb-4 group-hover:bg-primary/5 transition-colors">
-                                             <Monitor className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                                         </div>
-                                         <h3 className="text-base font-bold text-slate-900 mb-1">Terminal {counter.id.slice(-4)}</h3>
-                                         <div className="flex flex-wrap items-center gap-2 mb-4">
-                                             <Badge variant="secondary" className="text-[10px] font-medium">Staff: {counter.staffName}</Badge>
-                                             <Badge variant="outline" className="text-[10px] font-medium">Type: Standard</Badge>
-                                         </div>
+                                    <div className="absolute top-0 right-0 p-4">
+                                        <div className={cn("h-2 w-2 rounded-full", counter.status === 'ACTIVE' ? "bg-green-500" : "bg-red-500")} />
+                                    </div>
+                                    <CardContent className="p-6">
+                                        <div className="h-12 w-12 rounded-lg bg-slate-50 flex items-center justify-center mb-4 group-hover:bg-primary/5 transition-colors">
+                                            <Monitor className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                                        </div>
+                                        <h3 className="text-base font-bold text-slate-900 mb-1">Terminal {counter.id.slice(-4)}</h3>
+                                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                                            <Badge variant="secondary" className="text-[10px] font-medium">Staff: {counter.staffName}</Badge>
+                                            <Badge variant="outline" className="text-[10px] font-medium">Type: Standard</Badge>
+                                        </div>
                                         <div className="space-y-2">
-                                             <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                 <span>Current Load</span>
-                                                 <span>{counter.load}%</span>
-                                             </div>
-                                             <Progress value={counter.load} className="h-1.5" />
-                                         </div>
-                                         <div className="mt-6 pt-4 border-t flex gap-2">
-                                             <Button variant="outline" size="sm" className="flex-1 text-[10px] font-bold uppercase tracking-wider h-9" onClick={() => handleIntervene(counter.id, 'LOCK')}>Lock</Button>
-                                             <Button variant="outline" size="sm" className="flex-1 text-[10px] font-bold uppercase tracking-wider h-9">Sync</Button>
-                                         </div>
+                                            <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                <span>Current Load</span>
+                                                <span>{counter.load}%</span>
+                                            </div>
+                                            <Progress value={counter.load} className="h-1.5" />
+                                        </div>
+                                        <div className="mt-6 pt-4 border-t flex gap-2">
+                                            <Button variant="outline" size="sm" className="flex-1 text-[10px] font-bold uppercase tracking-wider h-9" onClick={() => handleIntervene(counter.id, 'LOCK')}>Lock</Button>
+                                            <Button variant="outline" size="sm" className="flex-1 text-[10px] font-bold uppercase tracking-wider h-9">Sync</Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))}
@@ -512,7 +551,7 @@ export default function OwnerPOSPage() {
                                 <div className="flex items-center justify-between mb-8 px-2">
                                     <div>
                                         <h2 className="text-xl font-bold tracking-tight">Security Radar</h2>
-                                         <p className="text-sm text-muted-foreground">Real-time analysis of {threats.length} security events.</p>
+                                        <p className="text-sm text-muted-foreground">Real-time analysis of {threats.length} security events.</p>
                                     </div>
                                 </div>
 
@@ -1025,6 +1064,31 @@ export default function OwnerPOSPage() {
                     animation: bounce-slow 3s infinite ease-in-out;
                 }
             `}</style>
+
+            {/* Quotation Dialog */}
+            <Dialog open={showQuotationDialog} onOpenChange={setShowQuotationDialog}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 rounded-[3rem] border-slate-200 shadow-2xl overflow-hidden bg-slate-100">
+                    <DialogTitle className="sr-only">Quotation Preview</DialogTitle>
+                    <div className="sticky top-0 z-50 p-6 bg-white/50 backdrop-blur-md border-b border-white/20 flex justify-between items-center shadow-sm">
+                        <h2 className="text-xl font-bold tracking-tight">Quotation Preview</h2>
+                        <div className="flex gap-3">
+                            <Button variant="outline" className="h-10 rounded-xl bg-white border-slate-200" onClick={handlePrint}>
+                                <Printer className="mr-2 h-4 w-4" /> Print PDF
+                            </Button>
+                            <Button className="h-10 rounded-xl bg-slate-900 shadow-xl shadow-slate-200">
+                                <Mail className="mr-2 h-4 w-4" /> Email to Customer
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="p-10">
+                        {lastOrder && (
+                            <div className="bg-white shadow-2xl rounded-sm mx-auto overflow-hidden">
+                                <ProfessionalDocument ref={docRef} type="QUOTATION" order={lastOrder} />
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

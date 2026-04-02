@@ -18,7 +18,11 @@ import {
     RefreshCw,
     UserCircle,
     Crown,
-    Activity
+    Activity,
+    Calculator,
+    FileText,
+    Truck,
+    Megaphone
 } from "lucide-react"
 
 const sidebarItems = [
@@ -30,11 +34,17 @@ const sidebarItems = [
     { href: "/store/loyalty", icon: Crown, label: "Loyalty Program" },
     { href: "/store/products", icon: Package, label: "Products" },
     { href: "/store/inventory", icon: Boxes, label: "Inventory" },
+    { href: "/store/suppliers", icon: Truck, label: "Suppliers" },
     { href: "/store/ai-inventory", icon: BarChart3, label: "AI Predictor" },
     { href: "/store/orders", icon: ShoppingCart, label: "Online Orders" },
+    { href: "/store/reports", icon: BarChart3, label: "Advanced Reports" },
+    { href: "/store/marketing", icon: Megaphone, label: "Marketing Hub" },
+    { href: "/store/statements", icon: FileText, label: "Statements Hub" },
     { href: "/store/sales", icon: BarChart3, label: "Daily Sales" },
     { href: "/store/staff", icon: Users, label: "Staff" },
     { href: "/store/analytics", icon: BarChart3, label: "Analytics" },
+    { href: "/store/accounting", icon: Calculator, label: "Accounting" },
+    { href: "/store/documents", icon: FileText, label: "Documents" },
     { href: "/store/support", icon: MessageCircle, label: "Support" },
     { href: "/store/system-status", icon: Activity, label: "System Status" },
     { href: "/store/settings/sync", icon: RefreshCw, label: "Data Sync" },

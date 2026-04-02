@@ -89,11 +89,14 @@ export async function generatePurchaseOrders(storeId: string = "store-freshmart"
     }
 }
 
-export async function getPurchaseOrders(storeId: string = "store-freshmart") {
+export async function getPurchaseOrders(storeId: string = "store-freshmart", supplierId?: string) {
     try {
         const pos = await prisma.purchaseOrder.findMany({
-            where: { storeId },
-            include: { items: true },
+            where: {
+                storeId,
+                ...(supplierId ? { supplierId } : {})
+            },
+            include: { items: true, supplier: true },
             orderBy: { createdAt: 'desc' }
         })
         return { success: true, pos }

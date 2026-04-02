@@ -11,6 +11,8 @@ import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/components/ui/use-toast"
+import { useSearchParams } from "next/navigation"
+import { use } from "react"
 
 export default function PurchaseOrdersPage() {
     const [pos, setPos] = useState<any[]>([])
@@ -18,13 +20,16 @@ export default function PurchaseOrdersPage() {
     const [selectedPO, setSelectedPO] = useState<any>(null)
     const { toast } = useToast()
 
+    const searchParams = useSearchParams()
+    const supplierId = searchParams.get('supplierId')
+
     useEffect(() => {
         loadPOs()
-    }, [])
+    }, [supplierId])
 
     const loadPOs = async () => {
         setLoading(true)
-        const res = await getPurchaseOrders()
+        const res = await getPurchaseOrders('store-freshmart', supplierId || undefined)
         if (res.success) setPos(res.pos || [])
         setLoading(false)
     }

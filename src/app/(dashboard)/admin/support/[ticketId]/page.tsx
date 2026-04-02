@@ -10,7 +10,10 @@ import { ArrowLeft, Send, Sparkles, User, Shield, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-export default function TicketDetailsPage({ params }: { params: { ticketId: string } }) {
+import { use } from "react"
+
+export default function TicketDetailsPage({ params: paramsPromise }: { params: Promise<{ ticketId: string }> }) {
+    const params = use(paramsPromise)
     const [ticket, setTicket] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [newMessage, setNewMessage] = useState("")

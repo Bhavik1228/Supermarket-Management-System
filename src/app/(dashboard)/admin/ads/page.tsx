@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { getCampaigns, getAdStats, createCampaign } from "@/app/actions/ads"
+import { getCampaigns, getAdPerformanceStats, createCampaign } from "@/app/actions/ads"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -28,11 +28,15 @@ export default function AdsPage() {
         setLoading(true)
         const [campRes, statsRes] = await Promise.all([
             getCampaigns(query),
-            getAdStats()
+            getAdPerformanceStats()
         ])
 
         if (campRes.success) setCampaigns(campRes.campaigns || [])
-        if (statsRes) setStats(statsRes)
+        if (statsRes.success) setStats({
+            totalRevenue: statsRes.stats?.totalBudget || 0,
+            activeCount: statsRes.stats?.activeCount || 0,
+            totalImpressions: statsRes.stats?.totalImpressions || 0
+        })
         setLoading(false)
     }
 

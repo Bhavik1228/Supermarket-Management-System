@@ -77,7 +77,9 @@ export default function POSPage() {
     }
 
     useEffect(() => {
-        getProducts().then(setProducts)
+        getProducts().then(res => {
+            if (res.success) setProducts(res.products || [])
+        })
     }, [])
 
     const pointsToEarn = Math.floor(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)) // SIMPLE RULE: 1 point per $1
@@ -194,7 +196,9 @@ export default function POSPage() {
 
                 // alert("Sale Complete! Printing Receipt...") // Optional: Remove alert if auto-printing
                 // Refresh product list to update stock counts
-                getProducts().then(setProducts)
+                getProducts().then(res => {
+                    if (res.success) setProducts(res.products || [])
+                })
             } else {
                 alert("Transaction Failed: " + (res.error || "Unknown error"))
             }

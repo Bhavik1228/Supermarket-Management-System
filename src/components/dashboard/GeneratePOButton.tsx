@@ -1,6 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useToast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+import { Loader2, Truck } from "lucide-react"
+import { generatePurchaseOrders } from "@/app/actions/purchase-orders"
 
 export function GeneratePOButton() {
     const [isLoading, setIsLoading] = useState(false)
@@ -12,12 +17,12 @@ export function GeneratePOButton() {
         try {
             const res = await generatePurchaseOrders()
             if (res.success) {
+                const count = res.count || 0
                 toast({
-                    title: res.count > 0 ? "Purchase Order Generated" : "Inventory Healthy",
+                    title: count > 0 ? "Purchase Order Generated" : "Inventory Healthy",
                     description: res.message,
-                    variant: res.count > 0 ? "default" : "outline"
                 })
-                if (res.count > 0) {
+                if (count > 0) {
                     router.push("/store/inventory/purchase-orders")
                 }
             } else {

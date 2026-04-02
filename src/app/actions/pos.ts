@@ -5,13 +5,14 @@ import { revalidatePath } from "next/cache"
 import { processLoyaltyForOrder } from "./loyalty"
 
 export async function getProducts(storeId: string = 'store-freshmart') {
-    const products = await prisma.product.findMany({
-        where: { storeId }
-    })
-
-    // Return raw products to frontend. Deduplication for display will happen on the client
-    // so that we can still search/scan unique barcodes in the background.
-    return products
+    try {
+        const products = await prisma.product.findMany({
+            where: { storeId }
+        })
+        return { success: true, products }
+    } catch (error) {
+        return { success: false, error: "Failed to fetch products" }
+    }
 }
 
 export async function searchCustomers(query: string) {

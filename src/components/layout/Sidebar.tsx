@@ -16,7 +16,8 @@ import {
     LogOut,
     MessageCircle,
     Eye,
-    Mail
+    Mail,
+    BarChart3
 } from "lucide-react"
 
 const sidebarItems = [
@@ -32,6 +33,7 @@ const sidebarItems = [
     { href: "/admin/status", icon: ShieldAlert, label: "Status Manager" },
     { href: "/admin/impersonate", icon: Eye, label: "Impersonate User" },
     { href: "/admin/automation", icon: Activity, label: "Automation" },
+    { href: "/admin/reports", icon: BarChart3, label: "Platform Reports" },
     { href: "/admin/emails", icon: Mail, label: "Email Testing" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
 ]

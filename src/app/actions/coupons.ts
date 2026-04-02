@@ -42,13 +42,13 @@ export async function createCoupon(data: {
                 code,
                 description: data.description,
                 discountType: data.discountType,
-                discountValue: data.discountValue,
+                value: data.discountValue,
                 usageType: data.usageType || 'SINGLE',
                 maxUses: data.maxUses,
                 maxUsesPerUser: data.maxUsesPerUser,
                 startDate: data.startDate,
-                expiryDate: data.expiryDate,
-                minPurchase: data.minPurchase,
+                expiresAt: data.expiryDate,
+                minSpend: data.minPurchase,
                 maxDiscount: data.maxDiscount,
                 storeId: data.storeId,
                 isPersonalized: data.isPersonalized || false,
@@ -81,7 +81,7 @@ export async function validateCoupon(
         const coupon = await prisma.coupon.findUnique({
             where: { code },
             include: {
-                usedBy: {
+                usage: {
                     where: { userId }
                 }
             }
@@ -97,7 +97,7 @@ export async function validateCoupon(
         }
 
         // Check expiry
-        if (coupon.expiryDate && new Date() > coupon.expiryDate) {
+        if (coupon.expiresAt && new Date() > coupon.expiresAt) {
             return { valid: false, error: "This coupon has expired" }
         }
 
@@ -117,8 +117,8 @@ export async function validateCoupon(
         }
 
         // Check minimum purchase
-        if (coupon.minPurchase && orderTotal < coupon.minPurchase) {
-            return { valid: false, error: `Minimum purchase of $${coupon.minPurchase} required` }
+        if (coupon.minSpend && orderTotal < coupon.minSpend) {
+            return { valid: false, error: `Minimum purchase of $${coupon.minSpend} required` }
         }
 
         // Check total usage limit
@@ -128,7 +128,7 @@ export async function validateCoupon(
 
         // Check per-user usage limit
         if (coupon.maxUsesPerUser) {
-            const userUsageCount = coupon.usedBy.length
+            const userUsageCount = coupon.usage.length
             if (userUsageCount >= coupon.maxUsesPerUser) {
                 return { valid: false, error: "You have already used this coupon the maximum number of times" }
             }
@@ -137,9 +137,9 @@ export async function validateCoupon(
         // Calculate discount
         let discountAmount = 0
         if (coupon.discountType === 'PERCENTAGE') {
-            discountAmount = (orderTotal * coupon.discountValue) / 100
+            discountAmount = (orderTotal * coupon.value) / 100
         } else if (coupon.discountType === 'FIXED_AMOUNT') {
-            discountAmount = coupon.discountValue
+            discountAmount = coupon.value
         }
 
         // Apply max discount cap
@@ -303,7 +303,7 @@ export async function getUserCoupons(userId: string) {
                     { isPersonalized: false, isActive: true },
                     { assignedToId: userId, isActive: true }
                 ],
-                expiryDate: {
+                expiresAt: {
                     gte: new Date()
                 }
             },

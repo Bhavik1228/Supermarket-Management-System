@@ -6,24 +6,102 @@ import { createAuditLog } from "./audit"
 
 // --- QUERY ACTIONS ---
 
-export async function getLoyaltyProgram(storeId?: string) {
+export async function getAllLoyaltyPrograms(storeId: string = 'store-freshmart') {
     try {
-        // If storeId is provided, look for that specific store's program
-        // If not, try to find a global program or fallback
-        const where = storeId ? { storeId } : {}
+        const programs = await prisma.loyaltyProgram.findMany({
+            where: { OR: [{ storeId }, { storeId: null }] },
+            include: {
+                tiers: { orderBy: { minPoints: 'asc' } },
+                _count: { select: { accounts: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        })
+        return { success: true, programs }
+    } catch (error) {
+        return { success: false, error: "Failed to fetch loyalty programs" }
+    }
+}
 
-        let program = await prisma.loyaltyProgram.findFirst({
-            where,
+export async function getLoyaltyProgram(storeId: string = 'store-freshmart') {
+    try {
+        const program = await prisma.loyaltyProgram.findFirst({
+            where: { OR: [{ storeId }, { storeId: null }] },
             include: {
                 tiers: { orderBy: { minPoints: 'asc' } },
                 rules: true
             }
         })
-
-        // If no program found, return null (handled by UI) or create default if it's the main store
         return { success: true, program }
     } catch (error) {
         return { success: false, error: "Failed to fetch loyalty program" }
+    }
+}
+
+export async function toggleProgramStatus(programId: string, isActive: boolean) {
+    try {
+        await prisma.loyaltyProgram.update({
+            where: { id: programId },
+            data: { isActive, status: isActive ? 'ACTIVE' : 'INACTIVE' }
+        })
+        revalidatePath("/store/loyalty")
+        return { success: true }
+    } catch (error) {
+        return { success: false, error: "Failed to update program status" }
+    }
+}
+
+export async function getLoyaltyAccounts(storeId: string = 'store-freshmart') {
+    try {
+        const program = await prisma.loyaltyProgram.findFirst({
+            where: { OR: [{ storeId }, { storeId: null }] }
+        })
+
+        if (!program) return { success: false, error: "No program found" }
+
+        const accounts = await prisma.loyaltyAccount.findMany({
+            where: { programId: program.id },
+            include: {
+                user: { select: { name: true, email: true } },
+                tier: true
+            },
+            orderBy: { lifetimePoints: 'desc' },
+            take: 100
+        })
+
+        return { success: true, accounts }
+    } catch (error) {
+        return { success: false, error: "Failed to fetch accounts" }
+    }
+}
+
+export async function getGlobalLoyaltyHistory(storeId: string = 'store-freshmart', limit: number = 100) {
+    try {
+        const program = await prisma.loyaltyProgram.findFirst({
+            where: { OR: [{ storeId }, { storeId: null }] }
+        })
+
+        if (!program) return { success: false, error: "No program found" }
+
+        const transactions = await prisma.loyaltyTransaction.findMany({
+            where: {
+                account: {
+                    programId: program.id
+                }
+            },
+            include: {
+                account: {
+                    include: {
+                        user: { select: { name: true, email: true } }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit
+        })
+
+        return { success: true, transactions }
+    } catch (error) {
+        return { success: false, error: "Failed to fetch history" }
     }
 }
 

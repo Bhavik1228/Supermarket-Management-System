@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Plus, MoreHorizontal, Edit, Trash2, Sparkles, Package } from "lucide-react"
+import { Search, Plus, MoreHorizontal, Edit, Trash2, Sparkles, Package, Loader2 } from "lucide-react"
 import Link from "next/link"
 import {
     DropdownMenu,
@@ -35,7 +35,11 @@ export default function ProductsPage() {
     useEffect(() => {
         async function load() {
             const res = await getProducts()
-            setProducts(res || [])
+            if (res.success) {
+                setProducts(res.products || [])
+            } else {
+                toast({ title: "Error", description: res.error, variant: "destructive" })
+            }
             setIsLoading(false)
         }
         load()

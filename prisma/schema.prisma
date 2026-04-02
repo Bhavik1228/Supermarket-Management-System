@@ -68,6 +68,14 @@ model Store {
   LoyaltyProgram LoyaltyProgram[]
   coupons        Coupon[]
   purchaseOrders PurchaseOrder[]
+
+  // Accounting Relations
+  accounts       Account[]
+  journalEntries JournalEntry[]
+  taxSlabs       TaxSlab[]
+  fiscalPeriods  FiscalPeriod[]
+  suppliers      Supplier[]
+  adCampaigns    AdCampaign[]
 }
 
 model Product {
@@ -80,9 +88,14 @@ model Product {
   reorderPoint Int @default(10)
   reorderQuantity Int @default(50)
   costPrice Float? @default(0)
+  
+  batches ProductBatch[]
 
   storeId String
   store   Store  @relation(fields: [storeId], references: [id])
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
 
   orderItems OrderItem[]
 
@@ -149,10 +162,17 @@ model Order {
   tax      Float
   discount Float @default(0)
 
-  status        String @default("COMPLETED") // COMPLETED, REFUNDED, CANCELLED
+  status        String @default("COMPLETED") // COMPLETED, REFUNDED, CANCELLED, PENDING, CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED
   paymentMethod String // CASH, CARD, MOBILE_MONEY
+  paymentReference String? // For online transactions
   channel       String @default("IN_STORE") // IN_STORE, ONLINE, APP, POS
   fulfillmentMethod String @default("INSTANT") // INSTANT, PICKUP, DELIVERY
+  
+  // Delivery/Shipping Info
+  customerAddress String?
+  customerPhone   String?
+  customerEmail   String?
+  notes           String?
 
   items        OrderItem[]
   transactions Transaction[]
@@ -192,10 +212,35 @@ model PurchaseOrder {
   storeId String
   store   Store  @relation(fields: [storeId], references: [id])
 
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
   status  String @default("PENDING") // PENDING, SENT, RECEIVED, CANCELLED
   total   Float  @default(0)
 
   items   PurchaseOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Supplier {
+  id        String  @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  address   String?
+  category  String? // Meat, Dairy, Vegetables, etc.
+  
+  storeId   String
+  store     Store   @relation(fields: [storeId], references: [id])
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  reliability Float @default(1.0) // 0 to 1
+  payables    Float @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -468,6 +513,9 @@ model AdCampaign {
   startDate   DateTime?
   endDate     DateTime?
 
+  storeId     String? // Optional for now to avoid breaking existing data
+  store       Store?   @relation(fields: [storeId], references: [id])
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -497,4 +545,131 @@ model AutomationRule {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Accounting Module
+
+model Account {
+  id          String         @id @default(cuid())
+  storeId     String
+  store       Store          @relation(fields: [storeId], references: [id])
+  code        String
+  name        String
+  type        String         // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
+  balance     Float          @default(0)
+  entries     JournalLine[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([storeId, code])
+}
+
+model JournalEntry {
+  id          String        @id @default(cuid())
+  storeId     String
+  store       Store         @relation(fields: [storeId], references: [id])
+  date        DateTime      @default(now())
+  description String
+  referenceId String?       
+  lines       JournalLine[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model JournalLine {
+  id          String       @id @default(cuid())
+  entryId     String
+  entry       JournalEntry @relation(fields: [entryId], references: [id])
+  accountId   String
+  account     Account      @relation(fields: [accountId], references: [id])
+  debit       Float        @default(0)
+  credit      Float        @default(0)
+}
+
+model TaxSlab {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  name        String   // e.g. "VAT 18%"
+  rate        Float    // 0.18
+  type        String   // PERCENTAGE, FIXED
+
+  isActive    Boolean  @default(true)
+}
+
+model FiscalPeriod {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id])
+  name      String   // "Jan 2026"
+  startDate DateTime
+  endDate   DateTime
+  isClosed  Boolean  @default(false)
+  
+  closedAt  DateTime?
+}
+
+// Documents System (Invoices, Quotations, Credit Notes)
+model Document {
+  id              String   @id @default(cuid())
+  storeId         String
+  type            String   // INVOICE, QUOTATION, CREDIT_NOTE, DELIVERY_NOTE, PURCHASE_ORDER
+  number          String   @unique // INV-2401-0001, QUO-2401-0001
+  
+  // Customer Info (snapshot)
+  customerId      String?
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  customerAddress String?
+  
+  // Related Order (for invoices from POS)
+  orderId         String?
+  
+  // Financials
+  subtotal        Float    @default(0)
+  tax             Float    @default(0)
+  discount        Float    @default(0)
+  total           Float    @default(0)
+  
+  // Status
+  status          String   @default("DRAFT") // DRAFT, SENT, PAID, CANCELLED, ACCEPTED, REJECTED, ISSUED
+  
+  // Line Items (JSON string for SQLite compatibility)
+  items           String   // JSON array of { name, quantity, price, tax, total }
+  
+  // Metadata (JSON string for SQLite compatibility)
+  metadata        String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([storeId])
+  @@index([type])
+  @@index([status])
+}
+
+model ProductBatch {
+  id            String    @id @default(cuid())
+  batchNumber   String
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id])
+  
+  quantity      Int
+  initialQuantity Int
+  
+  expiryDate    DateTime
+  arrivalDate   DateTime  @default(now())
+  
+  status        String    @default("ACTIVE") // ACTIVE, EXPIRED, DISCARDED
+  
+  costPrice     Float?    @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([productId])
+  @@index([expiryDate])
 }

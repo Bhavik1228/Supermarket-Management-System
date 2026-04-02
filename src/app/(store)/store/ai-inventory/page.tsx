@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,14 +9,7 @@ import {
     CheckCircle2, Package, BarChart3, ArrowRight, RefreshCw, Lightbulb
 } from "lucide-react"
 
-// Mock inventory items
-const inventoryItems = [
-    { id: "1", name: "Organic Apples", currentStock: 45, avgDailySales: 12, category: "Fruits", lastRestock: "2024-12-01" },
-    { id: "2", name: "Whole Milk 1L", currentStock: 23, avgDailySales: 15, category: "Dairy", lastRestock: "2024-12-05" },
-    { id: "3", name: "Bread Loaf", currentStock: 8, avgDailySales: 20, category: "Bakery", lastRestock: "2024-12-07" },
-    { id: "4", name: "Free Range Eggs", currentStock: 120, avgDailySales: 8, category: "Dairy", lastRestock: "2024-12-03" },
-    { id: "5", name: "Orange Juice 1L", currentStock: 34, avgDailySales: 6, category: "Beverages", lastRestock: "2024-12-02" },
-]
+import { getAIInventoryData } from "@/app/actions/inventory-ai"
 
 interface Prediction {
     daysUntilStockout: number
@@ -29,11 +22,28 @@ interface Prediction {
 }
 
 export default function AIInventoryPage() {
-    const [selectedItem, setSelectedItem] = useState<typeof inventoryItems[0] | null>(null)
+    const [inventoryItems, setInventoryItems] = useState<any[]>([])
+    const [selectedItem, setSelectedItem] = useState<any | null>(null)
     const [prediction, setPrediction] = useState<Prediction | null>(null)
     const [isAnalyzing, setIsAnalyzing] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
 
-    const analyzItem = async (item: typeof inventoryItems[0]) => {
+    const storeId = "store-freshmart"
+
+    useEffect(() => {
+        loadProductionData()
+    }, [])
+
+    async function loadProductionData() {
+        setIsLoading(true)
+        const res = await getAIInventoryData(storeId)
+        if (res.success && res.inventoryData) {
+            setInventoryItems(res.inventoryData)
+        }
+        setIsLoading(false)
+    }
+
+    const analyzItem = async (item: any) => {
         setSelectedItem(item)
         setIsAnalyzing(true)
         setPrediction(null)
@@ -94,36 +104,46 @@ export default function AIInventoryPage() {
                         <CardDescription>Click on any product to get AI predictions</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {inventoryItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => analyzItem(item)}
-                                className={`w-full p-4 rounded-lg border text-left transition-all hover:border-purple-300 hover:bg-purple-50/50 ${selectedItem?.id === item.id ? 'border-purple-500 bg-purple-50' : ''
-                                    }`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                                            <Package className="h-5 w-5 text-muted-foreground" />
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-64">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : inventoryItems.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground">
+                                No products found in inventory.
+                            </div>
+                        ) : (
+                            inventoryItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => analyzItem(item)}
+                                    className={`w-full p-4 rounded-lg border text-left transition-all hover:border-purple-300 hover:bg-purple-50/50 ${selectedItem?.id === item.id ? 'border-purple-500 bg-purple-50' : ''
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                                                <Package className="h-5 w-5 text-muted-foreground" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{item.name}</p>
+                                                <p className="text-xs text-muted-foreground">{item.category}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-medium">{item.name}</p>
-                                            <p className="text-xs text-muted-foreground">{item.category}</p>
+                                        <div className="text-right">
+                                            <p className="font-bold">{item.currentStock} units</p>
+                                            <p className="text-xs text-muted-foreground">~{item.avgDailySales}/day</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold">{item.currentStock} units</p>
-                                        <p className="text-xs text-muted-foreground">~{item.avgDailySales}/day</p>
-                                    </div>
-                                </div>
-                                {selectedItem?.id === item.id && isAnalyzing && (
-                                    <div className="mt-2 flex items-center gap-2 text-purple-600">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        <span className="text-sm">Analyzing with AI...</span>
-                                    </div>
-                                )}
-                            </button>
-                        ))}
+                                    {selectedItem?.id === item.id && isAnalyzing && (
+                                        <div className="mt-2 flex items-center gap-2 text-purple-600">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span className="text-sm">Analyzing with AI...</span>
+                                        </div>
+                                    )}
+                                </button>
+                            ))
+                        )}
                     </CardContent>
                 </Card>
 

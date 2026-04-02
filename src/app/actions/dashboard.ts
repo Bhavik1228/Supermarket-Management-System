@@ -317,3 +317,39 @@ export async function getCustomerLoyaltyOverview(storeId: string = 'store-freshm
         return { success: false, error: "Failed to fetch loyalty overview" }
     }
 }
+
+export async function getRevenueTrend(storeId: string = 'store-freshmart') {
+    try {
+        const days = 7
+        const result = []
+
+        for (let i = days - 1; i >= 0; i--) {
+            const date = new Date()
+            date.setDate(date.getDate() - i)
+            date.setHours(0, 0, 0, 0)
+            const nextDate = new Date(date)
+            nextDate.setDate(nextDate.getDate() + 1)
+
+            const dayStats = await prisma.order.aggregate({
+                where: {
+                    storeId,
+                    createdAt: { gte: date, lt: nextDate },
+                    status: 'COMPLETED'
+                },
+                _sum: { total: true }
+            })
+
+            result.push({
+                date: date.toLocaleDateString('en-US', { weekday: 'short' }),
+                revenue: dayStats._sum.total || 0,
+                // Mocking profit for trend (actual logic would involve cost calculations)
+                profit: (dayStats._sum.total || 0) * 0.25
+            })
+        }
+
+        return { success: true, trend: result }
+    } catch (error) {
+        console.error("getRevenueTrend error:", error)
+        return { success: false, error: "Failed to fetch revenue trend" }
+    }
+}

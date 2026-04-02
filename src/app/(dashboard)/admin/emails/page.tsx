@@ -63,6 +63,7 @@ const emailCategories = [
         title: "Orders & Refunds",
         emails: [
             { id: 'customer_order_confirmation', name: 'Order Receipt', desc: 'Digital receipt for customer purchase' },
+            { id: 'order_status_update', name: 'Order Status Update', desc: 'Notification of online order stage change' },
             { id: 'refund_confirmation', name: 'Refund Receipt', desc: 'Confirmation of processed refund' },
             { id: 'new_review_notification', name: 'New Feedback', desc: 'Alert for new customer review' },
             { id: 'high_value_return_alert', name: 'High-Value Return', desc: 'Executive alert for large refunds' },
@@ -82,6 +83,7 @@ const emailCategories = [
             { id: 'store_backup_failure', name: 'Store Sync Failed', desc: 'Alert for failed cloud upload' },
             { id: 'shift_start', name: 'Shift Started', desc: 'Log when terminal session begins' },
             { id: 'shift_end_summary', name: 'Shift Summary', desc: 'Final report when closing register' },
+            { id: 'report_delivery', name: 'Report Delivery', desc: 'Automated operational report email' },
             { id: 'staff_performance_milestone', name: 'Performance Milestone', desc: 'Congrats for staff achievements' },
             { id: 'access_revoked_notice', name: 'Access Revoked', desc: 'Security notice for account locking' },
             { id: 'unauthorized_access_attempt', name: 'Security Breach Attempt', desc: 'Alert for unauthorized override' },

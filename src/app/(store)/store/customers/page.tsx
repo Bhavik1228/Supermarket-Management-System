@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Search, Plus, User, ShoppingBag, CreditCard } from "lucide-react"
+import { Search, Plus, User, ShoppingBag, CreditCard, Loader2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 
 export default function CustomersPage() {

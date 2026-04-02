@@ -17,17 +17,25 @@ import {
     getRecentAuditLogs,
     getFinanceStats,
     getStaffPerformance,
-    getCustomerLoyaltyOverview
+    getCustomerLoyaltyOverview,
+    getRevenueTrend
 } from "@/app/actions/dashboard"
+import { getWasteStats } from "@/app/actions/waste"
+import { getBuyingSuggestions } from "@/app/actions/buyer-intelligence"
 import { Badge } from "@/components/ui/badge"
+import { ApprovalCenter } from "@/components/dashboard/ApprovalCenter"
+import { ExpirySentinelWidget } from "@/components/dashboard/ExpirySentinel"
+import { AlertCircle, Trash2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { GeneratePOButton } from "@/components/dashboard/GeneratePOButton"
 import { AdCarousel } from "@/components/store/AdCarousel"
+import { RevenueTrendChart, CategoryPieChart } from "@/components/dashboard/DashboardCharts"
+import { QuickActions } from "@/components/dashboard/QuickActions"
+import { GeneratePOButton } from "@/components/dashboard/GeneratePOButton"
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -43,7 +51,8 @@ export default async function StoreDashboardPage() {
     const [
         statsRes, alertsRes, insightsRes,
         approvalsRes, auditRes, financeRes,
-        staffRes, loyaltyRes
+        staffRes, loyaltyRes, trendRes,
+        buyRes, wasteRes
     ] = await Promise.all([
         getDashboardStats(storeId),
         getLiveAlerts(storeId),
@@ -52,10 +61,13 @@ export default async function StoreDashboardPage() {
         getRecentAuditLogs(storeId),
         getFinanceStats(storeId),
         getStaffPerformance(storeId),
-        getCustomerLoyaltyOverview(storeId)
+        getCustomerLoyaltyOverview(storeId),
+        getRevenueTrend(storeId),
+        getBuyingSuggestions(storeId),
+        getWasteStats(storeId)
     ])
 
-    const stats = statsRes.stats || { revenue: 0, profit: 0, transactions: 0, pendingApprovals: 0, stockValue: 0 }
+    const stats = statsRes.stats || { revenue: 0, profit: 0, transactions: 0, pendingApprovals: 0, stockValue: 0, inStockRate: "0%", health: "UNKNOWN" }
     const alerts = alertsRes.alerts || []
     const insights = insightsRes.insights || []
     const approvals = approvalsRes.requests || []
@@ -63,6 +75,9 @@ export default async function StoreDashboardPage() {
     const finance = financeRes.stats || { tax: 0, discounts: 0, netRevenue: 0, margin: "0%", marginValue: 0 }
     const staff = staffRes.staff || []
     const loyalty = loyaltyRes.stats || { totalMembers: 0, recentEnrollments: 0, activePoints: 0, redemptionRate: "0%" }
+    const trend = trendRes.trend || []
+    const buyingSuggestions = buyRes.suggestions || []
+    const waste = wasteRes.stats || { totalLoss: 0, count: 0, topReasons: [] }
 
     return (
         <div className="space-y-8 pb-10 animate-in fade-in duration-700">
@@ -157,7 +172,7 @@ export default async function StoreDashboardPage() {
                                             </div>
                                             <div className="flex-1">
                                                 <p className="text-sm font-bold text-slate-800">{alert.message}</p>
-                                                <Link href="/store/support">
+                                                <Link href={alert.message.toLowerCase().includes('stock') ? "/store/inventory" : "/store/ai-inventory"}>
                                                     <button className="text-[10px] text-primary hover:underline font-bold mt-1">RESPOND NOW</button>
                                                 </Link>
                                             </div>
@@ -167,29 +182,28 @@ export default async function StoreDashboardPage() {
                             </CardContent>
                         </Card>
 
-                        {/* AI Trends */}
-                        <Card className="lg:col-span-2 border-none shadow-xl bg-gradient-to-br from-primary/5 to-blue-500/5">
-                            <CardHeader>
-                                <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">
-                                    <Sparkles className="h-5 w-5 fill-primary" /> Strategic Intelligence Insights
-                                </CardTitle>
-                                <CardDescription>Behavioral analysis & Predictive optimization</CardDescription>
+                        {/* Revenue Intelligence */}
+                        <Card className="lg:col-span-2 border-none shadow-xl bg-white/80 backdrop-blur-md">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-lg font-bold flex items-center gap-2 text-primary">
+                                        <BarChart3 className="h-5 w-5 text-blue-600" /> Revenue & Profit Analysis
+                                    </CardTitle>
+                                    <CardDescription>7-day growth trajectory and margin performance</CardDescription>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-blue-500" />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Revenue</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Net Profit</span>
+                                    </div>
+                                </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    {insights.map(item => (
-                                        <div key={item.id} className="p-4 rounded-2xl bg-white border border-slate-100 hover:border-primary/30 transition-all hover:shadow-lg group">
-                                            <div className="flex justify-between items-center mb-3">
-                                                <Badge className={`${item.impact === 'HIGH' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'} `}>
-                                                    {item.impact} IMPACT
-                                                </Badge>
-                                            </div>
-                                            <h4 className="font-black text-slate-900 mb-1 group-hover:text-primary transition-colors">{item.title}</h4>
-                                            <p className="text-[11px] text-slate-500 leading-relaxed mb-4">{item.description}</p>
-                                            <Button variant="ghost" size="sm" className="w-full text-[10px] font-black h-8 hover:bg-primary hover:text-white">AUTO-OPTIMIZE</Button>
-                                        </div>
-                                    ))}
-                                </div>
+                                <RevenueTrendChart data={trend} />
                             </CardContent>
                         </Card>
                     </div>
@@ -240,6 +254,10 @@ export default async function StoreDashboardPage() {
                                 </div>
                             </div>
                         </Card>
+                    </div>
+
+                    <div className="mt-6">
+                        <SmartBuyerIntelligence suggestions={buyingSuggestions} />
                     </div>
                 </TabsContent>
 
@@ -311,6 +329,49 @@ export default async function StoreDashboardPage() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Waste & Shrinkage Control */}
+                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-10">
+                                <Trash2 className="h-24 w-24" />
+                            </div>
+                            <CardHeader>
+                                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                    <AlertCircle className="h-5 w-5 text-red-500" /> Shrinkage & Waste Control
+                                </CardTitle>
+                                <CardDescription className="text-slate-400 font-medium">Monitoring stock loss and expired assets</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                        <p className="text-[10px] text-slate-400 font-black uppercase">30D Value Loss</p>
+                                        <p className="text-2xl font-black text-red-400">${waste.totalLoss.toFixed(2)}</p>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                                        <p className="text-[10px] text-slate-400 font-black uppercase">Incidents</p>
+                                        <p className="text-2xl font-black text-white">{waste.count}</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black uppercase text-slate-500 mb-2">Primary Drivers</p>
+                                    {waste.topReasons.length === 0 ? (
+                                        <p className="text-xs text-slate-500 italic">No significant wastage data recorded.</p>
+                                    ) : (
+                                        waste.topReasons.map(([reason, count]: any) => (
+                                            <div key={reason} className="flex justify-between items-center text-xs">
+                                                <span className="text-slate-300 font-medium">{reason}</span>
+                                                <Badge className="bg-white/10 text-white border-none">{count} cases</Badge>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <Link href="/store/inventory">
+                                    <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 font-bold h-11 rounded-xl">
+                                        REPORT WASTAGE
+                                    </Button>
+                                </Link>
+                            </CardContent>
+                        </Card>
                     </div>
                 </TabsContent>
 
@@ -322,7 +383,7 @@ export default async function StoreDashboardPage() {
                             <CardDescription>Comprehensive revenue, tax, and margin analysis</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-6 md:grid-cols-3 mb-8">
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
                                 <div className="space-y-2">
                                     <p className="text-xs font-black text-slate-400 uppercase">Gross Revenue</p>
                                     <p className="text-3xl font-black text-slate-900 tabular-nums">{formatCurrency(stats.revenue)}</p>
@@ -339,6 +400,9 @@ export default async function StoreDashboardPage() {
                                     <p className="text-xs font-black text-slate-400 uppercase">Discount Volume</p>
                                     <p className="text-3xl font-black text-red-600 tabular-nums">({formatCurrency(finance.discounts)})</p>
                                     <p className="text-[10px] text-slate-400 font-bold">4.2% of total sales</p>
+                                </div>
+                                <div className="flex justify-center">
+                                    <CategoryPieChart />
                                 </div>
                             </div>
 
@@ -374,47 +438,14 @@ export default async function StoreDashboardPage() {
                     </Card>
                 </TabsContent>
 
-                {/* --- GOVERNANCE TAB (Approvals & Audits) --- */}
                 <TabsContent value="governance" className="space-y-6 animate-in slide-in-from-bottom-4">
                     <div className="grid gap-6 lg:grid-cols-2">
-                        {/* Approval Center */}
-                        <Card className="border-none shadow-xl">
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle className="text-lg font-bold">Approval & Override Center</CardTitle>
-                                    <CardDescription>Manage real-time overrides from POS</CardDescription>
-                                </div>
-                                <Badge className="bg-amber-500 text-white border-none">{approvals.length} PENDING</Badge>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {approvals.length === 0 ? (
-                                        <div className="py-8 text-center text-slate-400 flex flex-col items-center">
-                                            <CheckCircle2 className="h-10 w-10 mb-2 opacity-20" />
-                                            <p className="text-sm">Queues cleared. No overrides requested.</p>
-                                        </div>
-                                    ) : (
-                                        approvals.map(req => (
-                                            <div key={req.id} className="p-4 rounded-2xl border-2 border-slate-50 bg-white shadow-sm flex items-center justify-between">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-600">
-                                                        <Zap className="h-5 w-5 fill-red-600" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-black text-slate-900">{req.subject}</p>
-                                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Requested by {req.user.name}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Button variant="outline" size="sm" className="rounded-xl font-bold border-red-200 text-red-600 hover:bg-red-50">DENY</Button>
-                                                    <Button size="sm" className="rounded-xl font-bold bg-green-600 hover:bg-green-700">APPROVE</Button>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className="space-y-6">
+                            <ExpirySentinelWidget />
+                            <ApprovalCenter initialRequests={approvals} />
+                        </div>
+
+                        {/* Security Audit Feed */}
 
                         {/* Security Audit Feed */}
                         <Card className="border-none shadow-xl">
@@ -450,6 +481,61 @@ export default async function StoreDashboardPage() {
                     </div>
                 </TabsContent>
             </Tabs>
+            <QuickActions />
         </div>
+    )
+}
+
+function SmartBuyerIntelligence({ suggestions }: { suggestions: any[] }) {
+    return (
+        <Card className="border-none shadow-2xl bg-indigo-950 text-white overflow-hidden rounded-[3rem]">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[100px] -mr-32 -mt-32" />
+            <CardHeader className="relative z-10">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+                            <Sparkles className="h-6 w-6 text-primary fill-primary" /> MarketPulse Buyer Intelligence
+                        </CardTitle>
+                        <CardDescription className="text-indigo-300 font-medium mt-1">AI-driven inventory replenishment protocols.</CardDescription>
+                    </div>
+                    <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-md">NEXT-GEN ENGINE</Badge>
+                </div>
+            </CardHeader>
+            <CardContent className="relative z-10 p-10 pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {suggestions.length === 0 ? (
+                        <div className="col-span-full py-12 text-center text-indigo-300 font-bold uppercase tracking-widest bg-white/5 rounded-3xl border border-white/10">
+                            Analyzing Sales Velocity & Stock Vectors...
+                        </div>
+                    ) : (
+                        suggestions.map(s => (
+                            <div key={s.id} className="p-6 rounded-[2.5rem] bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-colors group">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="h-10 w-10 rounded-2xl bg-primary/20 flex items-center justify-center">
+                                        <TrendingUp className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <Badge className="bg-red-500/20 text-red-400 border-red-500/30 font-black text-[9px]">{s.daysRemaining}D LEFT</Badge>
+                                </div>
+                                <h4 className="font-black text-lg mb-1 truncate">{s.name}</h4>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between text-[10px] font-black uppercase text-indigo-300 tracking-tighter">
+                                        <span>Current stock</span>
+                                        <span className="text-white">{s.stock} UNITS</span>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                                        <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Optimum Reorder</p>
+                                        <p className="text-xl font-black text-white">{s.reorderQty} <span className="text-[10px] text-emerald-400">PCS</span></p>
+                                        <p className="text-[9px] font-bold text-emerald-300 mt-1">EST. COST: ${s.estimatedCost}</p>
+                                    </div>
+                                    <Button className="w-full h-10 rounded-xl bg-white text-indigo-950 hover:bg-indigo-50 font-black text-[10px] uppercase tracking-widest">
+                                        INITIATE PO
+                                    </Button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     )
 }

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Award, Crown, Settings, Plus, Trash2, Save, Loader2 } from "lucide-react"
+import { Award, Crown, Settings, Plus, Trash2, Save, Loader2, History } from "lucide-react"
+import Link from "next/link"
 
 export default function LoyaltyPage() {
     const [program, setProgram] = useState<any>(null)
@@ -70,9 +71,16 @@ export default function LoyaltyPage() {
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Loyalty Program</h2>
-                <p className="text-muted-foreground">Manage tiers, earning rules, and program settings.</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Loyalty Program</h2>
+                    <p className="text-muted-foreground">Manage tiers, earning rules, and program settings.</p>
+                </div>
+                <Link href="/store/loyalty/history">
+                    <Button variant="outline" className="h-11 px-6 rounded-2xl border-slate-200 font-bold gap-2">
+                        <History className="h-4 w-4" /> View Points Ledger
+                    </Button>
+                </Link>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
